@@ -1,0 +1,43 @@
+{
+  "summary": "First-iteration end-to-end testing of Cigna x Echoes of Silence Cognitive Assessment app. Backend: 11/11 pytest cases pass (users, sessions, scoring, normalisation, dimensions, levels, 404 cases, _id exclusion). Frontend: Welcome→Splash→Game navigation works; QR/Results/Share pages render correctly when seeded with a real session id; share buttons (FB/IG/TW) and CTA present; results donut + 4 dimension bubbles render with correct numbers (attention 93, processing 75, memory 82, flexibility 65 for a known input). All advertised features functional.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/sessions", "issue": "GameScores accepts negative ints (e.g. -5) and very large ints; clamping happens only inside compute_results. Pydantic field constraints (ge=0, le=50) would be cleaner."},
+      {"endpoint": "POST /api/users", "issue": "email field is `str` not EmailStr — invalid emails accepted (although EmailStr is imported, it's unused)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/splash", "issues": ["Title 'COGNITIVE ASSESSMENT' overlaps the EOS logo and tagline because of stacked negative margins (-mt-12 on both h1 and p). Tagline 'Insights today, better tomorrow.' is partially hidden behind the title."]},
+      {"screen": "/results/:id", "issues": ["Dimension labels (ATTENTION/PROCESSING/MEMORY/FLEXIBILITY) use color #4ecbca on the lime→teal gradient card — very low contrast and visually almost invisible in the rendered screenshot. Consider darker navy (#0d2240) or white pill behind."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cognitive_assessment.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Splash.jsx: remove -mt-12 from <p> (tagline overlapped by title); tighten overall vertical layout.",
+    "Results.jsx: change Bubble label color from #4ecbca to a higher-contrast color (e.g. #0d2240 or white) for legibility on the lime/teal card.",
+    "(optional) server.py: add Pydantic Field(ge=0, le=50) to GameScores for stricter validation; or use EmailStr (already imported) for User.email."
+  ],
+  "critical_code_review_comments": [
+    "compute_results: division by 50 hardcoded; safe today but should be a named constant MAX_RAW_PER_GAME.",
+    "GameRunner.jsx: catches only on POST failure and shows alert but does not navigate back from /calculating — user gets stuck on Calculating screen if /api/sessions fails. Add retry/navigate on error.",
+    "Results.jsx: error state is silent ('Could not load results.') with no retry; consider adding a back/retry CTA.",
+    "Welcome.jsx: client-side validation only checks name/day/email — email format not validated.",
+    "EmailStr is imported in server.py but never used."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_cognitive_assessment.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100% on tested flows"},
+  "test_credentials": "N/A - no auth in this app",
+  "seed_data_creation": "Created TEST_ prefixed users + sessions in MongoDB during pytest run. Created 1 user + 1 session for UI verification (id printed in logs).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests live at /app/backend/tests/test_cognitive_assessment.py — run via `pytest /app/backend/tests/ -v --junitxml=/app/test_reports/pytest/pytest_results.xml`. Frontend has full data-testid coverage: welcome-screen, input-name/day/month/year/email/phone/company/designation, welcome-start-btn, splash-screen, splash-start-btn, qr-screen, qr-view-results, results-card, results-level, results-share-btn, share-title, share-fb, share-ig, share-tw, share-cta. The 6 mini-games are auto-finishing (~25s each) via internal timers; for UI testing prefer creating a session via backend POST /api/sessions and visiting /qr/:id, /results/:id, /share/:id directly to skip the 6×25s wait. compute_results scoring formula verified: norm = round(raw*100/50) clamped 0-100; total = avg of 6; level thresholds 80/60/40 -> ADVANCED/PROFICIENT/INTERMEDIATE/BEGINNER; dimensions: attention=(reaction_pulse+tap_stars)/2, processing=(decision_sprint+reaction_pulse)/2, memory=(pattern_recall+find_odd)/2, flexibility=(rule_changed+decision_sprint)/2."
+}
